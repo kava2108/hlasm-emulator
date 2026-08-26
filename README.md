@@ -34,6 +34,11 @@ VSCode拡張としてのパッケージングはまだ無いので、現状は�
 
 対応リクエスト・既知の制約はHANDOVER.md §8-1を参照。
 
+## VSCode拡張
+
+`vscode-extension/`にVSCodeのデバッグUIから`hlasm-dap`を使うための拡張が
+ある。インストール手順・使い方は`vscode-extension/README.md`を参照。
+
 ## テスト
 
 ```bash

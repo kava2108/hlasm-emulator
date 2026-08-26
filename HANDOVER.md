@@ -197,14 +197,35 @@ tests/test_dap_subprocess.py（`python -m hlasm_emulator.dap`を実プロセス
   3. 条件付き/ヒット回数付きブレークポイント、データブレークポイント、
      `readMemory`/`writeMemory`リクエストは未対応
 
-### 8-2. 次にやるべきこと（VSCode拡張パッケージング、未着手）
+### 8-2. VSCode拡張パッケージング（追加セッションで実装済み）
 
-DAPサーバー自体はstdioで動く独立プロセスとして完成しているが、VSCodeの
-デバッグUIから使うには最低限のVSCode拡張（`package.json`の
-`contributes.debuggers`宣言＋起動時にこのPythonプロセスをspawnする
-アダプター記述）が別途必要。ここは今回未着手（VSCode拡張APIの正確な
-仕様確認が必要なため、憶測で書かず次セッションに送る）。動作確認は
-現状 tests/test_dap_subprocess.py のような生DAPクライアントで行っている。
+`vscode-extension/`として実装済み。WebFetchで
+https://code.visualstudio.com/api/extension-guides/debugger-extension
+の仕様を確認した上で実装（憶測で書かなかった）。
+
+- **構成**: `package.json`（`contributes.debuggers`/`languages`/
+  `breakpoints`/`configuration`宣言）＋ `extension.js`（プレーンJS、
+  TypeScriptビルド不要）
+- **仕組み**: `vscode.debug.registerDebugAdapterDescriptorFactory`で
+  `DebugAdapterExecutable`を返し、`<python> -m hlasm_emulator.dap`を
+  子プロセスとして起動するだけ。デバッグロジックは一切持たず、全てPython
+  側(§8-1)に委譲する薄いグルー
+- **Pythonインタプリタ解決順序**: (1) VSCode設定
+  `hlasmEmulator.pythonPath` → (2) `<ワークスペース>/.venv/bin/python`
+  （自動検出）→ (3) PATH上の`python3`
+- **言語登録**: `.hlasm`/`.asm`/`.mlc`拡張子に言語ID`hlasm`を割り当て、
+  ガター上でブレークポイントを打てるようにした（構文ハイライトの
+  文法定義はスコープ外、未実装）
+- **検証方法**: この環境に実VSCode GUIが無いため、(1)
+  `npx @vscode/vsce package`でのパッケージング成功、(2) Node上で
+  `vscode`モジュールを最小限モックして`activate()`の登録処理・
+  `resolveDebugConfiguration`のガード・`createDebugAdapterDescriptor`の
+  インタプリタ解決ロジック（実リポジトリの`.venv`検出を含む）を検証
+  済み。実際のVSCode UIでのブレークポイント/変数表示の目視確認は
+  次セッション（実VSCode環境）で要実施
+- **未実装のまま残るもの**: Marketplace公開（`vsce publish`）、構文
+  ハイライト（grammar定義）、`.vsix`にLICENSE同梱
+- 使い方の詳細は`vscode-extension/README.md`参照
 
 ## 9. 参考にした過去の議論
 

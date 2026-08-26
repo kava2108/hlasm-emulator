@@ -1,0 +1,82 @@
+{
+  "name": "hlasm-emulator-debug",
+  "displayName": "HLASM Emulator Debugger",
+  "description": "hlasm-emulator (Python) をDebug Adapter Protocol経由でVSCodeに接続し、HLASMプログラムをステップ実行する",
+  "version": "0.1.0",
+  "publisher": "hlasm-emulator-local",
+  "private": true,
+  "engines": {
+    "vscode": "^1.74.0"
+  },
+  "categories": ["Debuggers"],
+  "activationEvents": ["onDebug"],
+  "main": "./extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "hlasm",
+        "aliases": ["HLASM", "hlasm"],
+        "extensions": [".hlasm", ".asm", ".mlc"]
+      }
+    ],
+    "breakpoints": [
+      { "language": "hlasm" }
+    ],
+    "configuration": {
+      "title": "HLASM Emulator",
+      "properties": {
+        "hlasmEmulator.pythonPath": {
+          "type": "string",
+          "default": "",
+          "description": "hlasm_emulator / hlasm_parser をimportできるPython実行ファイルへのパス。空の場合はワークスペース直下の.venv、次にPATH上のpython3/pythonを順に試す。"
+        }
+      }
+    },
+    "debuggers": [
+      {
+        "type": "hlasmEmulator",
+        "label": "HLASM Emulator",
+        "languages": ["hlasm"],
+        "configurationAttributes": {
+          "launch": {
+            "required": ["program"],
+            "properties": {
+              "program": {
+                "type": "string",
+                "description": "実行するHLASMソースファイルの絶対パス",
+                "default": "${file}"
+              },
+              "stopOnEntry": {
+                "type": "boolean",
+                "description": "起動直後（先頭命令）で停止する",
+                "default": true
+              }
+            }
+          }
+        },
+        "initialConfigurations": [
+          {
+            "type": "hlasmEmulator",
+            "request": "launch",
+            "name": "HLASMを実行",
+            "program": "${file}",
+            "stopOnEntry": true
+          }
+        ],
+        "configurationSnippets": [
+          {
+            "label": "HLASM Emulator: 現在のファイルをデバッグ実行",
+            "description": "hlasm-emulatorで現在開いているHLASMファイルを実行する",
+            "body": {
+              "type": "hlasmEmulator",
+              "request": "launch",
+              "name": "HLASMを実行",
+              "program": "${1:${file}}",
+              "stopOnEntry": true
+            }
+          }
+        ]
+      }
+    ]
+  }
+}
