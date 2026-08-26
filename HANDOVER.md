@@ -398,8 +398,16 @@ IP+1`で判定して表現を出し分けている。
      kava2108/hlasm-emulator`を実行し、プロンプトにトークンを貼り付け）
   5. 登録後、Actionsタブから再実行（Re-run jobs）するか、何か1コミット
      pushすれば次回から緑になるはず
-- README.mdにCIバッジを追加（シークレット未設定の間は赤/失敗のままなので
-  ユーザー側の上記作業待ち）
+- **解決済み（このセッションで確認）**: 最初にPATを登録した直後の
+  再実行では`remote: Write access to repository not granted. / 403`
+  で失敗（認証自体は通っていたが権限不足）。原因はfine-grained PATの
+  デフォルトでは`Contents`権限が付いておらず（`Metadata: Read-only`
+  のみ）、cloneに必要な`Contents: Read-only`が無かったこと。ユーザーが
+  `Contents: Read-only`を追加 → 再実行 → Python 3.10/3.12両方グリーンで
+  確定。CIバッジはリポジトリが非公開のため未ログイン状態だと
+  「Not Found」になるが、GitHubにログインしてREADMEを見る分には
+  正常に表示される（想定通りの制約、対応不要）
+- README.mdにCIバッジを追加
 - `LICENSE`（MIT、pyproject.tomlに元々あった`license = {text = "MIT"}`
   宣言を実体化したもの）をリポジトリルートと`vscode-extension/`の両方に
   配置（`vsce package`は拡張ディレクトリ内のLICENSEを見るため、片方だけ
