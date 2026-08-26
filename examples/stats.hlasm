@@ -1,0 +1,47 @@
+STATS    CSECT
+*        6要素の配列に対してSUM/MAX/AVERAGE(整数除算)を計算する例。
+*        AVERAGEはサブルーチン呼び出し(BAL/BALR)で求め、
+*        最後にCVDでパックド10進数に変換する(印字前処理を模した形)。
+*        使う命令: LA/L/ST/LR/LTR/AR/CR/BCT/BNH/B/BAL/BR/DR/CVD
+*
+         LA    4,LIST          R4 = 配列の先頭アドレス
+         L     3,N             R3 = ループ回数(要素数)
+         LA    2,0             R2 = 合計(累算用)
+         L     5,LIST          R5 = 最大値(先頭要素で初期化)
+*
+SUMLOOP  L     1,0(0,4)        R1 = 現在の要素
+         AR    2,1             合計 += 要素
+         CR    1,5             要素 と 現在の最大値 を比較
+         BNH   NOTMAX          要素<=最大値ならば更新しない
+         LR    5,1             要素>最大値ならば最大値を更新
+NOTMAX   LA    4,4(0,4)        ポインタを1要素分進める
+         BCT   3,SUMLOOP       R3を減らして0でなければループ
+*
+         ST    2,SUM           合計を格納
+         ST    5,MAX           最大値を格納
+*
+         BAL   14,AVERAGE      平均を計算するサブルーチンを呼ぶ(R1に返る)
+*
+         CVD   1,AVGPACK       平均をパックド10進数に変換
+         B     DONE
+*
+*        サブルーチン: AVERAGE = SUM / N (0方向へ切り捨て)。結果はR1。
+AVERAGE  LA    0,0             被除数の上位32bit(R0)をゼロクリア
+         L     1,SUM           被除数の下位32bit(R1) = SUM
+         L     3,N             除数
+         DR    0,3             R0:R1 / R3 -> 商R1、余りR0
+         BR    14              呼び出し元へ戻る
+*
+DONE     LTR   1,1             最後の着地点(無害な自己比較)
+         END
+*
+N        DC    F'6'
+LIST     DC    F'12'
+         DC    F'45'
+         DC    F'7'
+         DC    F'93'
+         DC    F'28'
+         DC    F'61'
+SUM      DC    F'0'
+MAX      DC    F'0'
+AVGPACK  DS    PL8

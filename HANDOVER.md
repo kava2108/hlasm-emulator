@@ -414,6 +414,23 @@ IP+1`で判定して表現を出し分けている。
   だと警告が消えない）。`vscode-extension/package.json`にも
   `"license": "MIT"`を追加し、`.vsix`を再パッケージング
 
+### 8-7. より複雑なサンプルプログラム追加
+
+`examples/stats.hlasm`: 6要素の配列に対してSUM/MAX/AVERAGE(整数除算)を
+計算する例。`sum_loop.hlasm`より一段複雑で、以下を組み合わせている:
+- ループ内比較による最大値探索（`CR`+`BNH`+`LR`）
+- サブルーチン呼び出し（`BAL`/`BR`）でAVERAGEを計算し、コールスタックの
+  push/popが実際に発生する
+- 除算（`DR`、レジスタペア）とパックド10進数変換（`CVD`、印字前処理を
+  模した形）
+- `*`行コメント（hlasm-parserの字句解析でStatementに現れず、
+  こちらのlowering処理に一切影響しないことを確認済み）
+
+`tests/test_example_programs.py`に両サンプルの回帰テストを追加
+（`sum_loop.hlasm`は既存の期待値、`stats.hlasm`はSUM/MAX/AVERAGEを
+Python側でも計算し直して突き合わせ、`call_stack`が最終的に空になる
+ことも確認）。pytest全体で85件グリーン。
+
 ## 9. 参考にした過去の議論
 
 前セッションで「自作エミュレーター＋VSCodeデバッガーは実現可能か」を

@@ -25,6 +25,9 @@ python3 -m venv .venv
 .venv/bin/hlasm-emulator examples/sum_loop.hlasm --trace  # 1命令ごとにレジスタダンプ
 ```
 
+`examples/`には他に、配列のSUM/MAX/AVERAGEをサブルーチン呼び出し
+(BAL/BALR)とCVDを使って計算する少し複雑な例`stats.hlasm`もある。
+
 ## DAPアダプター（VSCode等のデバッガー接続用）
 
 `hlasm-dap`はstdin/stdout上でDebug Adapter Protocolを話す独立プロセス。
