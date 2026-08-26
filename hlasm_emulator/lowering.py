@@ -30,10 +30,11 @@ from .dc_values import encode_dc_operand
 from .errors import LoweringError, UnsupportedInstructionError
 from .memory import Memory
 
-RR_MNEMONICS = {"LR", "AR", "SR", "CR", "LTR"}
-RX_MNEMONICS = {"LA", "L", "ST", "A", "S", "C"}
+RR_MNEMONICS = {"LR", "AR", "SR", "CR", "LTR", "MR", "DR", "NR", "OR", "XR"}
+RX_MNEMONICS = {"LA", "L", "ST", "A", "S", "C", "CVB", "CVD", "M", "D", "N", "O", "X"}
 SI_MNEMONICS = {"MVI"}
 SS_MNEMONICS = {"MVC", "CLC"}
+RS_MNEMONICS = {"LM", "STM"}
 BRANCH_ALWAYS_MNEMONICS = {"B"}
 BRANCH_REG_MNEMONICS = {"BR"}
 BC_MNEMONICS = {"BC"}
@@ -48,6 +49,7 @@ SUPPORTED_MNEMONICS = (
     | RX_MNEMONICS
     | SI_MNEMONICS
     | SS_MNEMONICS
+    | RS_MNEMONICS
     | BRANCH_ALWAYS_MNEMONICS
     | BRANCH_REG_MNEMONICS
     | BC_MNEMONICS
@@ -184,6 +186,13 @@ def _resolve_operands(index, stmt, code_labels, data_labels, data_lengths):
             dest, length = _resolve_ss_dest(operands[0].raw, data_labels, data_lengths)
             src = _resolve_plain_address(operands[1].raw, data_labels)
             return ir.SS(dest, length, src)
+
+        if op in RS_MNEMONICS:
+            _expect(operands, 3, op, stmt)
+            r1 = parse_register_operand(operands[0].raw)
+            r3 = parse_register_operand(operands[1].raw)
+            addr = _resolve_plain_address(operands[2].raw, data_labels)
+            return ir.RS(r1, r3, addr)
 
         if op in BRANCH_ALWAYS_MNEMONICS:
             _expect(operands, 1, op, stmt)

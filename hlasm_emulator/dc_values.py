@@ -1,11 +1,12 @@
 """Encoding of DC literal values (and MVI/self-defining-term immediates)
 into bytes. This intentionally covers only the common numeric/character
-subset (C, X, B, F, H, FD) -- anything else raises LoweringError rather
+subset (C, X, B, F, H, FD, P) -- anything else raises LoweringError rather
 than silently zero-filling memory that a later instruction might read.
 """
 import re
 
 from .errors import LoweringError
+from .packed_decimal import encode_packed
 
 ENCODING = "cp037"  # EBCDIC, matches hlasm_parser.codec's default
 
@@ -16,7 +17,7 @@ _VALUE_RE = re.compile(
 )
 
 _BINARY_TYPES = {"F": 4, "H": 2, "FD": 8}
-_SUPPORTED_TYPES = {"C", "X", "B", *_BINARY_TYPES}
+_SUPPORTED_TYPES = {"C", "X", "B", "P", *_BINARY_TYPES}
 
 
 def extract_type_and_value(raw: str) -> tuple[str, "str | None"]:
@@ -58,6 +59,8 @@ def _encode_unit(type_code: str, value_text: "str | None", unit_len: int, raw: s
         encoded = int(inner, 2).to_bytes((len(inner) + 7) // 8, "big")
     elif type_code in _BINARY_TYPES:
         encoded = int(inner).to_bytes(unit_len, "big", signed=True)
+    elif type_code == "P":
+        encoded = encode_packed(int(inner), unit_len)
     else:  # pragma: no cover - guarded by _SUPPORTED_TYPES check above
         raise LoweringError(f"unsupported DC type {type_code!r}: {raw!r}")
 

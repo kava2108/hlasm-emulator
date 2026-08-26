@@ -4,9 +4,18 @@ interpreter loop in-process until a breakpoint, program end, or a step
 ceiling is hit, then replies -- there's no real concurrency to manage
 since instruction execution never blocks on I/O.
 
+The call stack shown by `stackTrace` is Interpreter.call_stack, a
+heuristic reconstruction of pending BAL/BALR calls (see interpreter.py's
+docstring) -- it is not a real hardware concept. Registers/memory are
+genuinely global in this architecture, so every frame's `scopes` show the
+same Registers/Data regardless of which frame is selected; only the
+frame's line/name differs.
+
 Known v0 limitations (see HANDOVER.md):
-- One thread, one stack frame (no call-stack tracking beyond BAL/BALR's
-  link register, so stepIn/stepOut behave the same as a single step).
+- One thread. stepIn/stepOut currently both behave the same as a single
+  step -- Interpreter.call_stack exists and is populated (see
+  interpreter.py), but this server doesn't use it yet to give stepOut
+  its own "run until this call frame returns" behavior. That's next.
 - `pause` is a no-op affordance: since `continue` is synchronous, there's
   nothing running to interrupt when a pause request could be processed.
 - No conditional/hit-count breakpoints, no watch/data breakpoints, no
@@ -39,6 +48,7 @@ class DebugSession:
         self.source_path: "str | None" = None
         self.breakpoint_lines: set = set()
         self.line_to_index: dict = {}
+        self.index_to_label: dict = {}
         self.stop_on_entry = True
 
     # ── transport helpers ────────────────────────────────────────────
@@ -124,6 +134,7 @@ class DebugSession:
         self.line_to_index = {}
         for instr in self.interp.instructions:
             self.line_to_index.setdefault(instr.line_no, instr.index)
+        self.index_to_label = {index: label for label, index in self.interp.code_labels.items()}
 
         self.send_response(request)
 

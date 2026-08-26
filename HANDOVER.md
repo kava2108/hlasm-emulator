@@ -313,6 +313,56 @@ IP+1`で判定して表現を出し分けている。
 `continue`実行時に追加で送られる`output`イベント（説明文）を読み飛ばす
 よう修正済み。全体のpytestは53件でグリーン。
 
+### 8-5. 命令セット拡充 + コールスタック可視化（進行中セッション、中断）
+
+ユーザーから「1. 命令セット拡充」「2. サブルーチン呼び出しの可視化
+（コールスタック）」の2つを依頼され、以下まで実装・コミット済み
+（セッション上限のため中断、次回はここから再開）:
+
+**完了: 命令セット拡充**（pytest全体で78件グリーン、コミット済み）
+- 新規: `hlasm_emulator/packed_decimal.py`（パックド10進数のencode/decode。
+  `DC P'...'`の静的初期値と`CVB`/`CVD`の両方から共用）
+- 追加した命令: `CVB`/`CVD`（RX形式、常にdoubleword=8バイト固定）、
+  `M`/`MR`（乗算、偶数レジスタペアR1:R1+1に64ビット積を格納）、
+  `D`/`DR`（除算、ゼロ除算・商のオーバーフローで`ExecutionError`、
+  商は0方向への切り捨て・余りは被除数と同符号という実機仕様通り）、
+  `N`/`NR`/`O`/`OR`/`X`/`XR`（論理AND/OR/XOR、CCは0(結果ゼロ)/1(非ゼロ)
+  のみ）、`LM`/`STM`（複数レジスタロード/ストア、`R3<R1`のレジスタ番号
+  折り返し=`LM 14,12,12(13)`慣用句に対応）
+- `ir.py`にRS形式(`RS(r1,r3,addr)`)を追加。M/D/MR/DR/N/NR/O/OR/X/XRは
+  既存のRR/RX形状を再利用（新規IR型は不要だった）
+- `lowering.py`: RS_MNEMONICS追加、3オペランド(reg,reg,addr)の
+  リゾルバを追加
+- `opcodes.py`: 偶数レジスタチェック`_require_even`、レジスタ範囲
+  折り返しヘルパー`_register_range`を追加
+- `explain.py`: 上記全命令の説明文フォーマットを追加
+  （乗算は`R4:R5 = R5 * R3 = 7 * 6 = 42`、除算は
+  `R4:R5 / R3 = 17 / 5 -> quotient R5=3, remainder R4=2`等）
+- テスト: `tests/test_opcodes_decimal_and_logic.py`(14件)、
+  `tests/test_explain.py`に追加8件
+
+**進行中: コールスタック可視化**
+- 完了・テスト済み: `interpreter.py`に`CallFrame`データクラスと
+  `Interpreter.call_stack`を追加。BAL/BALRが実際に分岐した時にフレームを
+  push、その後の分岐先が呼び出し時に保存した戻り先IR indexと一致したら
+  pop、というヒューリスティックで呼び出し/リターンを検出（実機には
+  コールスタックという概念自体が無いことをdocstringに明記）。ネスト呼び
+  出しのLIFO順序も`tests/test_call_stack.py`(4件)で確認済み
+- **未着手（次回続き）**: `hlasm_emulator/dap/server.py`側で
+  `Interpreter.call_stack`を実際に使う部分:
+  1. `cmd_stackTrace`を単一フレームから複数フレーム対応に変更
+     （`index_to_label`のキャッシュは`cmd_launch`に追加済み、
+     `cmd_stackTrace`本体の書き換えはまだ）
+  2. `cmd_stepOut`を`cmd_next`のエイリアスから、
+     「現在のコールフレームがreturnするまで実行し続ける」独立実装に
+     変更（`_continue_execution`と同様のbreakpointチェック付きループ、
+     ただし停止条件が`len(call_stack) < 呼び出し時点の深さ`）
+  3. 上記2つのDAPレベルのテスト追加
+  4. モジュールdocstring中の「stepIn/stepOutはstepと同じ」という記述を
+     更新（stepOutの実装後は不正確になる）
+- 設計は既に決まっている（このセッション中に固めた）ので、実装自体は
+  比較的小さい残作業。
+
 ## 9. 参考にした過去の議論
 
 前セッションで「自作エミュレーター＋VSCodeデバッガーは実現可能か」を

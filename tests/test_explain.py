@@ -257,3 +257,98 @@ MAIN     CSECT
 """
     interp = step_n(src, 1)
     assert interp.last_explanation == "R12 = #1 (return address); R2 field is 0, branch suppressed"
+
+
+def test_cvb_explanation():
+    src = """\
+MAIN     CSECT
+         CVB   1,PACKED
+         END
+PACKED   DC    PL8'42'
+"""
+    interp = step_n(src, 1)
+    addr = interp.data_labels["PACKED"]
+    assert interp.last_explanation == f"R1 = binary(packed-decimal mem[{addr}..{addr + 8})) = 42"
+
+
+def test_cvd_explanation():
+    src = """\
+MAIN     CSECT
+         LA    1,42
+         CVD   1,OUT
+         END
+OUT      DS    PL8
+"""
+    interp = step_n(src, 2)
+    addr = interp.data_labels["OUT"]
+    assert interp.last_explanation == f"mem[{addr}..{addr + 8}) = packed-decimal(R1) = packed-decimal(42)"
+
+
+def test_mr_explanation():
+    src = """\
+MAIN     CSECT
+         LA    5,7
+         LA    3,6
+         MR    4,3
+         END
+"""
+    interp = step_n(src, 3)
+    assert interp.last_explanation == "R4:R5 = R5 * R3 = 7 * 6 = 42"
+
+
+def test_dr_explanation():
+    src = """\
+MAIN     CSECT
+         LA    4,0
+         LA    5,17
+         LA    3,5
+         DR    4,3
+         END
+"""
+    interp = step_n(src, 4)
+    assert interp.last_explanation == "R4:R5 / R3 = 17 / 5 -> quotient R5=3, remainder R4=2"
+
+
+def test_nr_explanation():
+    src = """\
+MAIN     CSECT
+         LA    1,12
+         LA    2,10
+         NR    1,2
+         END
+"""
+    interp = step_n(src, 3)
+    assert interp.last_explanation == "R1 = R1 & R2 = 0xC & 0xA = 0x8; CC=1"
+
+
+def test_n_memory_explanation():
+    src = """\
+MAIN     CSECT
+         LA    1,255
+         N     1,MASK
+         END
+MASK     DC    F'15'
+"""
+    interp = step_n(src, 2)
+    addr = interp.data_labels["MASK"]
+    assert interp.last_explanation == f"R1 = R1 & mem[{addr}] = 0xFF & 0xF = 0xF; CC=1"
+
+
+def test_lm_stm_explanation():
+    src = """\
+MAIN     CSECT
+         LA    14,1
+         LA    15,2
+         STM   14,15,SAVE
+         LA    14,0
+         LA    15,0
+         LM    14,15,SAVE
+         END
+SAVE     DS    2F
+"""
+    interp = step_n(src, 3)  # LA, LA, STM
+    addr = interp.data_labels["SAVE"]
+    assert interp.last_explanation == f"mem[{addr}..{addr + 8}) = R14, R15 (store multiple)"
+
+    interp2 = step_n(src, 6)  # ..., LA, LA, LM
+    assert interp2.last_explanation == f"R14, R15 = mem[{addr}..{addr + 8}) (load multiple)"

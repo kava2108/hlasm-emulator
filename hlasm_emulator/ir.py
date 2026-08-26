@@ -45,6 +45,13 @@ class SS:
 
 
 @dataclass(frozen=True)
+class RS:
+    r1: int
+    r3: int
+    addr: AddressRef
+
+
+@dataclass(frozen=True)
 class BranchAlways:
     target_index: int
 

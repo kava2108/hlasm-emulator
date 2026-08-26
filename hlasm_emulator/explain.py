@@ -16,6 +16,12 @@ from . import ir
 from .cpu import CPU
 
 _ARITH_OP = {"AR": "+", "A": "+", "SR": "-", "S": "-"}
+_LOGICAL_OP = {"NR": "&", "N": "&", "OR": "|", "O": "|", "XR": "^", "X": "^"}
+
+
+def _pair_signed64(cpu, r1: int) -> int:
+    raw = (cpu.get(r1) << 32) | cpu.get(r1 + 1)
+    return raw - (1 << 64) if raw & (1 << 63) else raw
 
 
 def explain(instr, before_gpr: list, cpu, memory, next_ip: int) -> str:
@@ -36,6 +42,8 @@ def explain(instr, before_gpr: list, cpu, memory, next_ip: int) -> str:
         return _explain_si(args, before, memory)
     if isinstance(args, ir.SS):
         return _explain_ss(m, args, before, cpu, memory)
+    if isinstance(args, ir.RS):
+        return _explain_rs(m, args, before)
 
     taken = next_ip != instr.index + 1
     if isinstance(args, ir.BranchAlways):
@@ -82,6 +90,20 @@ def _explain_rr(m: str, args: ir.RR, before: CPU, cpu) -> str:
     if m == "CR":
         a, b = before.get_signed(r1), before.get_signed(r2)
         return f"compare R{r1}, R{r2}: {a} vs {b}; CC={cpu.psw.condition_code}"
+    if m in _LOGICAL_OP:
+        op = _LOGICAL_OP[m]
+        a, b = before.get(r1), before.get(r2)
+        return f"R{r1} = R{r1} {op} R{r2} = 0x{a:X} {op} 0x{b:X} = 0x{cpu.get(r1):X}; CC={cpu.psw.condition_code}"
+    if m == "MR":
+        a, b = before.get_signed(r1 + 1), before.get_signed(r2)
+        return f"R{r1}:R{r1 + 1} = R{r1 + 1} * R{r2} = {a} * {b} = {_pair_signed64(cpu, r1)}"
+    if m == "DR":
+        dividend = _pair_signed64(before, r1)
+        divisor = before.get_signed(r2)
+        return (
+            f"R{r1}:R{r1 + 1} / R{r2} = {dividend} / {divisor} "
+            f"-> quotient R{r1 + 1}={cpu.get_signed(r1 + 1)}, remainder R{r1}={cpu.get_signed(r1)}"
+        )
     return m
 
 
@@ -101,6 +123,37 @@ def _explain_rx(m: str, args: ir.RX, before: CPU, cpu, memory) -> str:
     if m == "C":
         a, b = before.get_signed(r1), memory.read_int(addr, 4)
         return f"compare R{r1}, mem[{addr}]: {a} vs {b}; CC={cpu.psw.condition_code}"
+    if m in _LOGICAL_OP:
+        op = _LOGICAL_OP[m]
+        a, b = before.get(r1), memory.read_uint(addr, 4)
+        return f"R{r1} = R{r1} {op} mem[{addr}] = 0x{a:X} {op} 0x{b:X} = 0x{cpu.get(r1):X}; CC={cpu.psw.condition_code}"
+    if m == "CVB":
+        return f"R{r1} = binary(packed-decimal mem[{addr}..{addr + 8})) = {cpu.get_signed(r1)}"
+    if m == "CVD":
+        return f"mem[{addr}..{addr + 8}) = packed-decimal(R{r1}) = packed-decimal({before.get_signed(r1)})"
+    if m == "M":
+        a, b = before.get_signed(r1 + 1), memory.read_int(addr, 4)
+        return f"R{r1}:R{r1 + 1} = R{r1 + 1} * mem[{addr}] = {a} * {b} = {_pair_signed64(cpu, r1)}"
+    if m == "D":
+        dividend = _pair_signed64(before, r1)
+        divisor = memory.read_int(addr, 4)
+        return (
+            f"R{r1}:R{r1 + 1} / mem[{addr}] = {dividend} / {divisor} "
+            f"-> quotient R{r1 + 1}={cpu.get_signed(r1 + 1)}, remainder R{r1}={cpu.get_signed(r1)}"
+        )
+    return m
+
+
+def _explain_rs(m: str, args: ir.RS, before: CPU) -> str:
+    from .opcodes import _register_range
+
+    regs = _register_range(args.r1, args.r3)
+    addr = args.addr.resolve(before)
+    reg_list = ", ".join(f"R{r}" for r in regs)
+    if m == "LM":
+        return f"{reg_list} = mem[{addr}..{addr + 4 * len(regs)}) (load multiple)"
+    if m == "STM":
+        return f"mem[{addr}..{addr + 4 * len(regs)}) = {reg_list} (store multiple)"
     return m
 
 
