@@ -1,0 +1,22 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "hlasm-emulator"
+version = "0.1.0"
+description = "Minimal z/Architecture subset emulator for executing HLASM programs"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+# hlasm-parser is a sibling project, not a published package -- install it
+# separately (e.g. `pip install -e ../hlasm-parser`) before this one.
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0"]
+
+[project.scripts]
+hlasm-emulator = "hlasm_emulator.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["hlasm_emulator"]
