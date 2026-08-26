@@ -1,5 +1,6 @@
 from .cpu import CPU
 from .errors import ExecutionError
+from .explain import explain
 from .opcodes import execute
 
 
@@ -11,6 +12,7 @@ class Interpreter:
         self.data_labels = lowered.data_labels
         self.data_lengths = lowered.data_lengths
         self.cpu = CPU()
+        self.last_explanation = ""
 
     @property
     def current_instruction(self):
@@ -30,10 +32,11 @@ class Interpreter:
         if instr is None:
             self.cpu.halt("end of program")
             return
+        before_gpr = list(self.cpu.gpr)
         next_ip = execute(self.cpu, self.memory, instr)
-        self.cpu.psw.instruction_address = (
-            next_ip if next_ip is not None else instr.index + 1
-        )
+        next_ip = next_ip if next_ip is not None else instr.index + 1
+        self.last_explanation = explain(instr, before_gpr, self.cpu, self.memory, next_ip)
+        self.cpu.psw.instruction_address = next_ip
 
     def run(self, max_steps: int = 1_000_000) -> None:
         steps = 0

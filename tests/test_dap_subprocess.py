@@ -60,6 +60,9 @@ def test_subprocess_launch_and_step(tmp_path):
 
         _write(proc, {"seq": 4, "type": "request", "command": "next", "arguments": {}})
         assert _read(proc)["success"] is True
+        output_event = _read(proc)
+        assert output_event["event"] == "output"
+        assert "R1 = address 5" in output_event["body"]["output"]
         assert _read(proc)["body"]["reason"] == "step"
 
         _write(proc, {"seq": 5, "type": "request", "command": "disconnect", "arguments": {}})

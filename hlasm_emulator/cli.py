@@ -29,6 +29,7 @@ def main(argv=None) -> int:
             if instr:
                 print(f"[{instr.index}] {label}{instr.mnemonic}")
             interp.step()
+            print(f"  {interp.last_explanation}")
             print(interp.register_dump())
             print()
     else:

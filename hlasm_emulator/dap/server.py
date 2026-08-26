@@ -209,6 +209,11 @@ class DebugSession:
         ]
         variables.append({"name": "CC", "value": str(cpu.psw.condition_code), "variablesReference": 0})
         variables.append({"name": "IP", "value": str(cpu.psw.instruction_address), "variablesReference": 0})
+        variables.append({
+            "name": "(last step)",
+            "value": self.interp.last_explanation or "(not started)",
+            "variablesReference": 0,
+        })
         return variables
 
     def _data_variables(self) -> list:
@@ -257,6 +262,7 @@ class DebugSession:
         self.send_response(request)
         if self.interp.cpu.running:
             self.interp.step()
+            self.send_output(f"{self.interp.last_explanation}\n")
         if self.interp.cpu.running:
             self.send_event("stopped", {"reason": "step", "threadId": 1})
         else:
@@ -277,6 +283,7 @@ class DebugSession:
                 return
             first = False
             self.interp.step()
+            self.send_output(f"{self.interp.last_explanation}\n")
             steps += 1
             if steps >= MAX_CONTINUE_STEPS:
                 self.send_output(f"stopped after {steps} steps without halting (possible infinite loop)\n")
