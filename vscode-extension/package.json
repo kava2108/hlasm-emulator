@@ -5,6 +5,7 @@
   "version": "0.1.0",
   "publisher": "hlasm-emulator-local",
   "private": true,
+  "license": "MIT",
   "engines": {
     "vscode": "^1.74.0"
   },

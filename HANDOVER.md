@@ -368,6 +368,23 @@ IP+1`で判定して表現を出し分けている。
   グローバルなので、`scopes`はどのフレームを選んでも同じ内容を返す
   （実機的には正しい挙動だが、明記しておく）
 
+### 8-6. CI（GitHub Actions）とLICENSE（追加セッション）
+
+- `.github/workflows/test.yml`: push/PR時にPython 3.10/3.12の2系統で
+  pytestを自動実行。**hlasm-parserはPyPI未公開のため
+  `pip install git+https://github.com/kava2108/hlasm-parser.git`で
+  取得**（hlasm-parser側は既に`kava2108/hlasm-parser`にpush済みで
+  originと同期していることを確認済み）。ローカルでも全く同じ手順
+  （新規venv→git+https経由でhlasm-parserを入れる→`pip install -e .`→
+  pytest）を実行し、83件グリーンになることを確認してからワークフロー
+  ファイルを確定させた
+- README.mdにCIバッジを追加
+- `LICENSE`（MIT、pyproject.tomlに元々あった`license = {text = "MIT"}`
+  宣言を実体化したもの）をリポジトリルートと`vscode-extension/`の両方に
+  配置（`vsce package`は拡張ディレクトリ内のLICENSEを見るため、片方だけ
+  だと警告が消えない）。`vscode-extension/package.json`にも
+  `"license": "MIT"`を追加し、`.vsix`を再パッケージング
+
 ## 9. 参考にした過去の議論
 
 前セッションで「自作エミュレーター＋VSCodeデバッガーは実現可能か」を

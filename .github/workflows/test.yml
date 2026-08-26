@@ -1,0 +1,32 @@
+name: test
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install hlasm-parser (sibling project, not on PyPI)
+        run: pip install git+https://github.com/kava2108/hlasm-parser.git
+
+      - name: Install hlasm-emulator
+        run: pip install -e .
+
+      - name: Install test dependencies
+        run: pip install pytest
+
+      - name: Run tests
+        run: pytest tests/ -v

@@ -1,7 +1,10 @@
 # hlasm-emulator
 
+[![test](https://github.com/kava2108/hlasm-emulator/actions/workflows/test.yml/badge.svg)](https://github.com/kava2108/hlasm-emulator/actions/workflows/test.yml)
+
 HLASMプログラムを実行する、最小限のz/Architectureサブセット・エミュレーター。
-背景・設計判断・既知の制約は [HANDOVER.md](HANDOVER.md) を参照。
+背景・設計判断・既知の制約は [HANDOVER.md](HANDOVER.md) を参照。ライセンスは
+[MIT](LICENSE)。
 
 ## セットアップ
 
