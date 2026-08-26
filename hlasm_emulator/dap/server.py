@@ -12,12 +12,15 @@ same Registers/Data regardless of which frame is selected; only the
 frame's line/name differs.
 
 Known v0 limitations (see HANDOVER.md):
-- One thread. stepIn/stepOut currently both behave the same as a single
-  step -- Interpreter.call_stack exists and is populated (see
-  interpreter.py), but this server doesn't use it yet to give stepOut
-  its own "run until this call frame returns" behavior. That's next.
-- `pause` is a no-op affordance: since `continue` is synchronous, there's
-  nothing running to interrupt when a pause request could be processed.
+- One thread. stepIn behaves the same as a single step (which already
+  lands inside a callee if the current instruction is a call, since
+  that's just what executing one more instruction does). stepOut runs
+  until the current call frame's return address is reached (or a
+  breakpoint/program end) using Interpreter.call_stack's depth; with no
+  pending call at all, stepOut runs to completion instead.
+- `pause` is a no-op affordance: since `continue`/`stepOut` are
+  synchronous, there's nothing running to interrupt when a pause request
+  could be processed.
 - No conditional/hit-count breakpoints, no watch/data breakpoints, no
   `readMemory`/`writeMemory` requests -- only line breakpoints and
   register/data-label inspection via `evaluate` and `variables`.
@@ -180,19 +183,29 @@ class DebugSession:
         self.send_response(request, body={"threads": [{"id": 1, "name": "main"}]})
 
     def cmd_stackTrace(self, request: dict) -> None:
-        instr = self.interp.current_instruction if self.interp else None
-        if instr is None:
-            frames = []
-        else:
-            label_prefix = f"{instr.label}: " if instr.label else ""
-            frames = [{
-                "id": 1,
-                "name": f"{label_prefix}{instr.mnemonic}",
-                "line": instr.line_no,
-                "column": 1,
-                "source": {"path": self.source_path, "name": os.path.basename(self.source_path)},
-            }]
+        frames = []
+        if self.interp is not None:
+            instr = self.interp.current_instruction
+            if instr is not None:
+                label_prefix = f"{instr.label}: " if instr.label else ""
+                frames.append(self._frame(0, f"{label_prefix}{instr.mnemonic}", instr.line_no))
+            # Older (outer) call frames, innermost first -- each shows where
+            # the call *was made* (the BAL/BALR's own line), since that's
+            # where that frame's execution is paused until the callee returns.
+            for i, frame in enumerate(reversed(self.interp.call_stack), start=1):
+                callee = self.index_to_label.get(frame.target_index)
+                name = f"{frame.call_instr.mnemonic} {callee}" if callee else frame.call_instr.mnemonic
+                frames.append(self._frame(i, name, frame.call_instr.line_no))
         self.send_response(request, body={"stackFrames": frames, "totalFrames": len(frames)})
+
+    def _frame(self, frame_id: int, name: str, line: int) -> dict:
+        return {
+            "id": frame_id,
+            "name": name,
+            "line": line,
+            "column": 1,
+            "source": {"path": self.source_path, "name": os.path.basename(self.source_path)},
+        }
 
     def cmd_scopes(self, request: dict) -> None:
         self.send_response(request, body={
@@ -251,10 +264,16 @@ class DebugSession:
     def cmd_next(self, request: dict) -> None:
         self._single_step(request)
 
-    # No real call-stack tracking (see module docstring) -- step in/out
-    # degrade to a plain single step, which is at least never wrong.
+    # A single step already "steps into" a call (see module docstring).
     cmd_stepIn = cmd_next
-    cmd_stepOut = cmd_next
+
+    def cmd_stepOut(self, request: dict) -> None:
+        self.send_response(request)
+        if not self.interp.call_stack:
+            self._run_until(lambda: False)  # no enclosing call: "out" means run to completion
+            return
+        target_depth = len(self.interp.call_stack) - 1
+        self._run_until(lambda: len(self.interp.call_stack) <= target_depth)
 
     def cmd_pause(self, request: dict) -> None:
         self.send_response(request)
@@ -280,18 +299,36 @@ class DebugSession:
             self.send_event("terminated")
 
     def _continue_execution(self) -> None:
-        # `instr is not None` guards the case where the instruction pointer
-        # has run off the end of the program: self.interp.step() handles
-        # that by halting the CPU itself (see Interpreter.step), which is
-        # what actually flips cpu.running and ends the while loop below --
-        # this function must never decide "the program is over" on its own.
+        self._run_until(lambda: False)
+
+    def _run_until(self, stop_condition) -> None:
+        """Step repeatedly, checked-and-executed one at a time, until
+        `stop_condition()` is true, a breakpoint line is reached, or the
+        program halts. `stop_condition` (and the breakpoint check) is
+        evaluated against the state *after* the previous step -- i.e.
+        "should we stop before running this upcoming instruction" -- and
+        is skipped on the very first instruction, since that's the one we
+        were already sitting on when this call started (a breakpoint
+        there, or the caller's own stop_condition, must not immediately
+        re-trigger without making any progress).
+
+        `instr is not None` guards the case where the instruction pointer
+        has run off the end of the program: self.interp.step() handles
+        that by halting the CPU itself (see Interpreter.step), which is
+        what actually flips cpu.running and ends the while loop below --
+        this function must never decide "the program is over" on its own.
+        """
         first = True
         steps = 0
         while self.interp.cpu.running:
             instr = self.interp.current_instruction
-            if instr is not None and not first and instr.line_no in self.breakpoint_lines:
-                self.send_event("stopped", {"reason": "breakpoint", "threadId": 1})
-                return
+            if not first:
+                if instr is not None and instr.line_no in self.breakpoint_lines:
+                    self.send_event("stopped", {"reason": "breakpoint", "threadId": 1})
+                    return
+                if stop_condition():
+                    self.send_event("stopped", {"reason": "step", "threadId": 1})
+                    return
             first = False
             self.interp.step()
             self.send_output(f"{self.interp.last_explanation}\n")

@@ -341,27 +341,32 @@ IP+1`で判定して表現を出し分けている。
 - テスト: `tests/test_opcodes_decimal_and_logic.py`(14件)、
   `tests/test_explain.py`に追加8件
 
-**進行中: コールスタック可視化**
-- 完了・テスト済み: `interpreter.py`に`CallFrame`データクラスと
-  `Interpreter.call_stack`を追加。BAL/BALRが実際に分岐した時にフレームを
-  push、その後の分岐先が呼び出し時に保存した戻り先IR indexと一致したら
-  pop、というヒューリスティックで呼び出し/リターンを検出（実機には
-  コールスタックという概念自体が無いことをdocstringに明記）。ネスト呼び
-  出しのLIFO順序も`tests/test_call_stack.py`(4件)で確認済み
-- **未着手（次回続き）**: `hlasm_emulator/dap/server.py`側で
-  `Interpreter.call_stack`を実際に使う部分:
-  1. `cmd_stackTrace`を単一フレームから複数フレーム対応に変更
-     （`index_to_label`のキャッシュは`cmd_launch`に追加済み、
-     `cmd_stackTrace`本体の書き換えはまだ）
-  2. `cmd_stepOut`を`cmd_next`のエイリアスから、
-     「現在のコールフレームがreturnするまで実行し続ける」独立実装に
-     変更（`_continue_execution`と同様のbreakpointチェック付きループ、
-     ただし停止条件が`len(call_stack) < 呼び出し時点の深さ`）
-  3. 上記2つのDAPレベルのテスト追加
-  4. モジュールdocstring中の「stepIn/stepOutはstepと同じ」という記述を
-     更新（stepOutの実装後は不正確になる）
-- 設計は既に決まっている（このセッション中に固めた）ので、実装自体は
-  比較的小さい残作業。
+**完了: コールスタック可視化**（次セッションで完了、pytest全体83件グリーン）
+- `interpreter.py`に`CallFrame`データクラスと`Interpreter.call_stack`を
+  追加。BAL/BALRが実際に分岐した時にフレームをpush、その後の分岐先が
+  呼び出し時に保存した戻り先IR indexと一致したらpop、という
+  ヒューリスティックで呼び出し/リターンを検出（実機にはコールスタック
+  という概念自体が無いことをdocstringに明記）。ネスト呼び出しの
+  LIFO順序も`tests/test_call_stack.py`(4件)で確認済み
+- `hlasm_emulator/dap/server.py`:
+  - `cmd_stackTrace`を複数フレーム対応に変更。フレーム0=現在の命令、
+    フレーム1以降=`call_stack`の各保留中呼び出し（BAL/BALRが実行された
+    行を表示。「そのフレームの実行はコール元の行で止まっている」という
+    通常のデバッガーの慣習に合わせた）
+  - `cmd_stepOut`を独立実装に変更:
+    保留中の呼び出しがあれば「そのフレームがreturnするまで実行」、
+    無ければ「最後まで実行」(継続と同じ)。`_continue_execution`と
+    ロジックを共有するため`_run_until(stop_condition)`ヘルパーに
+    リファクタリング（ブレークポイントチェック・最大ステップ数
+    ガードは共通化、停止条件だけが呼び出し元ごとに異なる）
+  - `cmd_stepIn`は変更なし（1ステップ実行が既に「呼び出し先に入る」
+    動作そのものであるため、専用実装は不要と判断）
+- テスト: `tests/test_dap_call_stack.py`(5件)。呼び出し前後での
+  フレーム数変化、コールサイト行の表示、`stepOut`が実際に戻り先まで
+  実行すること、呼び出し無しでの`stepOut`が最後まで実行することを確認
+- 残る既知の制約: レジスタ/メモリはこのアーキテクチャでは本当に
+  グローバルなので、`scopes`はどのフレームを選んでも同じ内容を返す
+  （実機的には正しい挙動だが、明記しておく）
 
 ## 9. 参考にした過去の議論
 
