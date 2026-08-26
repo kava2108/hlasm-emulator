@@ -5,6 +5,9 @@ VSCodeのデバッグUIに接続する薄いグルー拡張。実際のデバッ
 すべてPython側（`hlasm-dap`）にあり、この拡張はそれを子プロセスとして
 起動するだけ。TypeScriptビルドは不要（プレーンJSで完結）。
 
+`.hlasm`/`.asm`/`.mlc`ファイル向けの構文ハイライト（`syntaxes/hlasm.tmLanguage.json`、
+ラベル/命令/文字列リテラル/コメントの配色）も同梱。
+
 ## 前提
 
 リポジトリルート（`hlasm-emulator/`）で、README.mdの手順通りに
@@ -27,6 +30,7 @@ npx --yes @vscode/vsce package --allow-missing-repository
 
 ## 使い方
 
+0. お試し用に`../examples/sum_loop.hlasm`が同梱されている
 1. `.hlasm`/`.asm`/`.mlc`拡張子のHLASMソースファイルを開く
 2. 実行/デバッグビュー →「実行とデバッグ」→ `HLASM Emulator` を選択
    （`launch.json`が無ければ自動的に開いているファイルを対象にする）

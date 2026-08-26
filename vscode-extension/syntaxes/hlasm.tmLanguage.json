@@ -1,0 +1,40 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "HLASM",
+  "scopeName": "source.hlasm",
+  "comment": "Heuristic, fixed-format-oriented grammar: column 1 is assumed to hold either '*' (comment) or a label, matching the sample programs hlasm-emulator actually executes. Not a full HLASM syntax (continuation columns, sequence-symbol comments, and the 71/72-column boundary are not modeled). Mnemonic list matches hlasm_emulator's supported instruction set plus common directives.",
+  "patterns": [
+    { "include": "#comment" },
+    { "include": "#label" },
+    { "include": "#keyword" },
+    { "include": "#string" },
+    { "include": "#number" },
+    { "include": "#punctuation" }
+  ],
+  "repository": {
+    "comment": {
+      "match": "^\\*.*$",
+      "name": "comment.line.asterisk.hlasm"
+    },
+    "label": {
+      "match": "^[A-Za-z$#@_][A-Za-z0-9$#@_]*",
+      "name": "entity.name.label.hlasm"
+    },
+    "keyword": {
+      "match": "(?i)\\b(LR|LTR|AR|SR|CR|LA|L|ST|A|S|C|MVI|MVC|CLC|BR|BALR|BAL|BCTR|BCT|BHE|BNL|BLE|BNH|BNE|BNZ|BNO|BE|BH|BL|BP|BM|BZ|BO|BC|B|CSECT|DSECT|START|END|EQU|USING|DROP|DC|DS|TITLE|PRINT|EJECT|SPACE|COPY|MACRO|MEND|MNOTE|AMODE|RMODE|LTORG|COM)\\b",
+      "name": "keyword.control.hlasm"
+    },
+    "string": {
+      "match": "\\b[A-Za-z]{0,2}'(?:[^']|'')*'",
+      "name": "string.quoted.other.hlasm"
+    },
+    "number": {
+      "match": "(?<![A-Za-z0-9_])[0-9]+(?![A-Za-z0-9_])",
+      "name": "constant.numeric.hlasm"
+    },
+    "punctuation": {
+      "match": "[,()]",
+      "name": "punctuation.hlasm"
+    }
+  }
+}

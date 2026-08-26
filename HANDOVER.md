@@ -216,16 +216,72 @@ https://code.visualstudio.com/api/extension-guides/debugger-extension
 - **言語登録**: `.hlasm`/`.asm`/`.mlc`拡張子に言語ID`hlasm`を割り当て、
   ガター上でブレークポイントを打てるようにした（構文ハイライトの
   文法定義はスコープ外、未実装）
-- **検証方法**: この環境に実VSCode GUIが無いため、(1)
+- **検証方法（初回セッション時点）**: 実VSCode GUIが無い前提で、(1)
   `npx @vscode/vsce package`でのパッケージング成功、(2) Node上で
   `vscode`モジュールを最小限モックして`activate()`の登録処理・
   `resolveDebugConfiguration`のガード・`createDebugAdapterDescriptor`の
-  インタプリタ解決ロジック（実リポジトリの`.venv`検出を含む）を検証
-  済み。実際のVSCode UIでのブレークポイント/変数表示の目視確認は
-  次セッション（実VSCode環境）で要実施
-- **未実装のまま残るもの**: Marketplace公開（`vsce publish`）、構文
-  ハイライト（grammar定義）、`.vsix`にLICENSE同梱
+  インタプリタ解決ロジック（実リポジトリの`.venv`検出を含む）を検証。
+  実VSCode UIでの目視確認は追加セッション（§8-3）で実施済み
+- **未実装のまま残るもの**: Marketplace公開（`vsce publish`）、`.vsix`
+  へのLICENSE同梱
 - 使い方の詳細は`vscode-extension/README.md`参照
+
+### 8-3. 実VSCode環境での目視確認、構文ハイライト（追加セッション）
+
+前回セッションで「実VSCode GUIが無いので目視確認は次回」としていたが、
+このマシンに`sudo`とネットワークがあったため、**本物のVSCode
+（Electron）をXvfb仮想ディスプレイ上で起動し、公式のExtension Test API
+（`@vscode/test-electron`）経由で実際にブレークポイント→変数表示まで
+駆動する**という、憶測でも省略でもない本格的な検証を実施できた。
+
+**やったこと**:
+1. `sudo apt-get install xvfb imagemagick` で仮想ディスプレイと
+   スクリーンショット取得手段を用意
+2. `@vscode/test-electron`が実VSCode 1.134.0一式（Electron本体、
+   約330MB）をダウンロードし、`runTests()`で
+   `--extensionDevelopmentPath`にこの拡張、`--extensionTestsPath`に
+   自作のテストスイートを渡して起動
+3. テストスイート（Extension Host内で実行、本物の`vscode`
+   API使用）が: 拡張を`activate()` → `examples/sum_loop.hlasm`相当の
+   ファイルを開く（`languageId`が`hlasm`になることを確認）→
+   `vscode.debug.addBreakpoints()`でAR命令の行にブレークポイント設置
+   → `vscode.debug.startDebugging()`でlaunch → DebugAdapterTrackerで
+   本物のDAPメッセージを傍受して`'stopped'`イベントを検知 →
+   `session.customRequest('threads'|'stackTrace'|'scopes'|'variables'|
+   'evaluate', ...)`をVSCode本体と全く同じ経路で呼び出し、R1=10/R2=0/
+   COUNT=4/停止行=6等を手計算値とアサーション比較 → 全て一致
+4. ブレークポイント命中中に`DISPLAY=:99 import -window root`で
+   スクリーンショットを取得。エディタのブレークポイント（赤丸）・
+   現在行ハイライト・コールスタック（`AR verify_sample.hlasm 6:1`,
+   "Paused on breakpoint"）・VARIABLESパネルの`Registers`/`Data`
+   スコープ・構文ハイライト（ニーモニックの配色、ラベルの配色、
+   `F'4'`等の文字列リテラルの配色、ステータスバーの`HLASM`表示）が
+   すべて同一画面に写っていることを目視確認済み
+5. 構文ハイライト自体は`vscode-textmate`+`vscode-oniguruma`で
+   ヘッドレスにもトークナイズ検証済み（実VSCodeと同じOnigurumaエンジン
+   でMAIN=label, CSECT/LA/L/AR/BCT/ST/END/DC=keyword,
+   F'4'等=string、という分類が期待通りであることを確認）
+
+**ハマった点（次回同じ検証をする時のために記録）**: このセッション自身が
+VSCode拡張ホスト内のNodeプロセスとして動いているため、シェル環境に
+`ELECTRON_RUN_AS_NODE=1`と`VSCODE_IPC_HOOK_CLI`が継承されている。これを
+消さずに実VSCodeバイナリを起動すると、ElectronがただのNodeとして動作
+してしまい（`--no-sandbox`等のオプションが「不正なオプション」として
+拒否される、ワークスペースパスをrequireしようとしてMODULE_NOT_FOUND、
+等の不可解なエラーになる）。`delete process.env.ELECTRON_RUN_AS_NODE`
+と`delete process.env.VSCODE_IPC_HOOK_CLI`をテストランナー側で行うことで
+解決した。
+
+**追加した構文ハイライト**: `vscode-extension/syntaxes/hlasm.tmLanguage.json`
+（列1のみをラベル/コメント判定に使うヒューリスティック文法。継続列や
+71/72桁境界は非対応、と明記）＋`language-configuration.json`
+（`*`行コメントのトグル、`()`の対応括弧）。
+
+この検証で使ったXvfb起動・`@vscode/test-electron`実行・スクリーンショット
+取得の一連の手順とスクリプトは使い捨てのスクラッチ領域で実行し、
+リポジトリには恒久的なCIとしては追加していない（Electron本体
+ダウンロード+Xvfbを要するため、通常のpytest実行には重すぎると判断）。
+再現手順が要る場合はこのセッションのログを参照。
 
 ## 9. 参考にした過去の議論
 

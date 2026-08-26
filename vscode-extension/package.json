@@ -16,7 +16,15 @@
       {
         "id": "hlasm",
         "aliases": ["HLASM", "hlasm"],
-        "extensions": [".hlasm", ".asm", ".mlc"]
+        "extensions": [".hlasm", ".asm", ".mlc"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "hlasm",
+        "scopeName": "source.hlasm",
+        "path": "./syntaxes/hlasm.tmLanguage.json"
       }
     ],
     "breakpoints": [

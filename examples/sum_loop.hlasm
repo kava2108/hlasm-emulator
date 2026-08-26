@@ -1,0 +1,16 @@
+MAIN     CSECT
+         LA    4,LIST
+         L     3,COUNT
+         LA    2,0
+LOOP     L     1,0(0,4)
+         AR    2,1
+         LA    4,4(0,4)
+         BCT   3,LOOP
+         ST    2,TOTAL
+         END
+COUNT    DC    F'4'
+LIST     DC    F'10'
+         DC    F'20'
+         DC    F'30'
+         DC    F'40'
+TOTAL    DC    F'0'
