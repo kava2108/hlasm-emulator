@@ -74,6 +74,7 @@ class LoweredProgram:
     memory: Memory
     code_labels: dict
     data_labels: dict
+    data_lengths: dict
 
 
 def lower_source(text: str, **parse_kwargs) -> LoweredProgram:
@@ -91,7 +92,7 @@ def lower_program(program) -> LoweredProgram:
 
     memory, data_labels, data_lengths = _build_memory(section)
     instructions, code_labels = _lower_instructions(section, data_labels, data_lengths)
-    return LoweredProgram(instructions, memory, code_labels, data_labels)
+    return LoweredProgram(instructions, memory, code_labels, data_labels, data_lengths)
 
 
 def _build_memory(section):

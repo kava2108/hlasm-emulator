@@ -17,6 +17,7 @@ dev = ["pytest>=7.0"]
 
 [project.scripts]
 hlasm-emulator = "hlasm_emulator.cli:main"
+hlasm-dap = "hlasm_emulator.dap.__main__:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["hlasm_emulator"]

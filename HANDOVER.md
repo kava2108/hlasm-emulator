@@ -113,8 +113,11 @@ VSCode (launch.json でデバッガーとして接続)
 
 - [x] 初期命令セット: 下記§9参照。CVB/CVD・乗除算・論理演算(N/O/X)は
       未実装のまま次段階に持ち越し（§8参照）
-- [ ] DAPアダプター実装言語（Python単一 vs Python(engine)+TS(DAP)の
-      2言語構成）: 未着手。まずCLIでのステップ実行が動くところまで実装
+- [x] DAPアダプター実装言語: **Python単一**に決定・実装済み（§8参照）。
+      DAPのワイヤーフォーマットはLSPと同じ「Content-Length ヘッダー+JSON」
+      で軽量なため、Node/TSを増やす理由がなかった。VSCode拡張本体の
+      パッケージング（拡張機能としてこのアダプターを起動する部分）は
+      未着手のまま次段階に残す
 - [x] 未対応命令に遭遇したときの挙動: `UnsupportedInstructionError`を
       lowering時点で送出して停止する方針に決定（no-op継続だと誤った
       実行結果を「正しく動いた」ように見せてしまうため）。SVC/LE自体は
@@ -156,11 +159,52 @@ VSCode (launch.json でデバッガーとして接続)
      （`LOOP DS 0H`のような整列イディオムを分岐先にする慣用句は非対応）
   5. DC初期値のエンコードはC/X/B/F/H/FD型のみ対応。それ以外
      （P/Z/A等）はDCの時点で`LoweringError`（未使用データでも失敗する）
-- **未実装**: CVB/CVD、乗除算(M/D)、論理演算(N/O/X)、DAPアダプター、
-  VSCode拡張パッケージング
+- **未実装**: CVB/CVD、乗除算(M/D)、論理演算(N/O/X)、VSCode拡張パッケージング
 - 動作確認例: `LA`でリストの先頭アドレスをロード→`BCT`ループで4要素
   （10,20,30,40）を`AR`で合計→`ST`でTOTALに格納、を実行して合計100が
   正しく得られることを`tests/test_integration.py`で確認済み
+
+### 8-1. DAPアダプター実装（追加セッション）
+
+`hlasm_emulator/dap/`として実装済み（`protocol.py`/`server.py`/
+`__main__.py`）。テストはtests/test_dap_protocol.py（フレーミングの
+往復）、tests/test_dap_server.py（`DebugSession`を直接駆動、ループ内
+ブレークポイントで4回止まりレジスタ値を手計算と突き合わせ）、
+tests/test_dap_subprocess.py（`python -m hlasm_emulator.dap`を実プロセス
+起動して実配線を確認）の3層、計14件（全体では35件）。
+
+- **起動方法**: `hlasm-dap`（コンソールスクリプト）または
+  `python -m hlasm_emulator.dap`。stdin/stdoutでDAPメッセージを待ち受ける
+- **対応リクエスト**: initialize, launch（`program`必須, `stopOnEntry`
+  任意）, setBreakpoints（行ブレークポイントのみ。命令の無い行は次の
+  実行可能行にスナップする）, setExceptionBreakpoints/
+  setFunctionBreakpoints（no-opで成功応答のみ）, configurationDone,
+  threads, stackTrace（フレーム1枚のみ）, scopes（Registers/Data の
+  2スコープ）, variables（R0-R15+CC+IP、およびDCラベルをメモリ上の値で
+  表示）, continue, next/stepIn/stepOut（呼び出しスタックを追跡しない
+  ためstepIn/stepOutはnextと同じ単一ステップ）, pause（no-op応答のみ、
+  §8-2参照）, evaluate（レジスタ名/CC/IP/データラベル名を評価、Watch・
+  Hover用）, disconnect, terminate
+- **設計上の割り切り**:
+  1. 単一スレッド・単一スタックフレームのみ。BAL/BALRのリンクレジスタ
+     以上のコールスタック追跡はしていないため、stepIn/stepOutはstepの
+     別名でしかない
+  2. `continue`は同期実行（ブレークポイント命中 or プログラム終了 or
+     最大ステップ数5,000,000到達まで、その場でループを回してから応答
+     を返す）。命令実行がI/O待ちしないため実用上問題ないが、`pause`は
+     「継続実行中に割り込む」という本来の意味では機能しない
+     （no-op応答＋stoppedイベントを返すだけ）
+  3. 条件付き/ヒット回数付きブレークポイント、データブレークポイント、
+     `readMemory`/`writeMemory`リクエストは未対応
+
+### 8-2. 次にやるべきこと（VSCode拡張パッケージング、未着手）
+
+DAPサーバー自体はstdioで動く独立プロセスとして完成しているが、VSCodeの
+デバッグUIから使うには最低限のVSCode拡張（`package.json`の
+`contributes.debuggers`宣言＋起動時にこのPythonプロセスをspawnする
+アダプター記述）が別途必要。ここは今回未着手（VSCode拡張APIの正確な
+仕様確認が必要なため、憶測で書かず次セッションに送る）。動作確認は
+現状 tests/test_dap_subprocess.py のような生DAPクライアントで行っている。
 
 ## 9. 参考にした過去の議論
 

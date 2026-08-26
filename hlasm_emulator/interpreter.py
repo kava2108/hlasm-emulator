@@ -9,6 +9,7 @@ class Interpreter:
         self.memory = lowered.memory
         self.code_labels = lowered.code_labels
         self.data_labels = lowered.data_labels
+        self.data_lengths = lowered.data_lengths
         self.cpu = CPU()
 
     @property

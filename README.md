@@ -22,6 +22,18 @@ python3 -m venv .venv
 .venv/bin/hlasm-emulator path/to/program.hlasm --trace  # 1命令ごとにレジスタダンプ
 ```
 
+## DAPアダプター（VSCode等のデバッガー接続用）
+
+`hlasm-dap`はstdin/stdout上でDebug Adapter Protocolを話す独立プロセス。
+VSCode拡張としてのパッケージングはまだ無いので、現状は生のDAPクライアント
+（またはDAP対応の汎用ツール）から接続する。
+
+```bash
+.venv/bin/hlasm-dap
+```
+
+対応リクエスト・既知の制約はHANDOVER.md §8-1を参照。
+
 ## テスト
 
 ```bash
