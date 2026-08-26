@@ -66,6 +66,11 @@ def _encode_unit(type_code: str, value_text: "str | None", unit_len: int, raw: s
 
     if len(encoded) > unit_len:
         raise LoweringError(f"DC value {raw!r} does not fit in {unit_len} bytes")
+    if type_code == "C":
+        # Character constants are left-justified, padded with trailing
+        # blanks -- e.g. DC CL8'HI' is "HI" followed by 6 EBCDIC spaces,
+        # not 6 leading NUL bytes.
+        return encoded.ljust(unit_len, " ".encode(ENCODING))
     return encoded.rjust(unit_len, b"\x00")
 
 

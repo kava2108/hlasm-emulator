@@ -40,3 +40,28 @@ def test_stats_example():
 
     # BAL/BR round-tripped cleanly: no call frame left pending.
     assert interp.call_stack == []
+
+
+def test_order_batch_example():
+    interp = run_example("order_batch.hlasm")
+    mem = interp.memory
+    base = interp.data_labels["RECORDS"]
+    record_len = 33
+
+    orders = [("WIDGET-A", 12, 350), ("GADGET-B", 5, 980), ("GIZMO-C", 40, 25)]
+    threshold = 3000
+    expected_total = 0
+    for i, (code, qty, price) in enumerate(orders):
+        rec = base + i * record_len
+        extended = qty * price
+        expected_total += extended
+
+        stored_code = mem.read_bytes(rec, 8).decode("cp037").rstrip(" ")
+        assert stored_code == code
+        assert decode_packed(mem.read_bytes(rec + 24, 8)) == extended
+
+        flag = mem.read_bytes(rec + 32, 1).decode("cp037")
+        assert flag == ("H" if extended > threshold else " ")
+
+    total_addr = interp.data_labels["TOTAL"]
+    assert decode_packed(mem.read_bytes(total_addr, 8)) == expected_total

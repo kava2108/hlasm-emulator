@@ -25,8 +25,13 @@ python3 -m venv .venv
 .venv/bin/hlasm-emulator examples/sum_loop.hlasm --trace  # 1命令ごとにレジスタダンプ
 ```
 
-`examples/`には他に、配列のSUM/MAX/AVERAGEをサブルーチン呼び出し
-(BAL/BALR)とCVDを使って計算する少し複雑な例`stats.hlasm`もある。
+`examples/`には他に:
+- `stats.hlasm`: 配列のSUM/MAX/AVERAGEをサブルーチン呼び出し(BAL/BALR)と
+  CVDを使って計算する少し複雑な例
+- `order_batch.hlasm`: 受注明細の固定長レコードテーブルをループ処理し、
+  数量×単価をCVB→MR→CVDで計算してレコードへ書き戻し、しきい値超過に
+  フラグを立てるバッチ集計プログラム(COBOL/HLASMの実務でよくある
+  パターン)
 
 ## DAPアダプター（VSCode等のデバッガー接続用）
 
