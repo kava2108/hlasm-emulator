@@ -371,14 +371,35 @@ IP+1`で判定して表現を出し分けている。
 ### 8-6. CI（GitHub Actions）とLICENSE（追加セッション）
 
 - `.github/workflows/test.yml`: push/PR時にPython 3.10/3.12の2系統で
-  pytestを自動実行。**hlasm-parserはPyPI未公開のため
-  `pip install git+https://github.com/kava2108/hlasm-parser.git`で
-  取得**（hlasm-parser側は既に`kava2108/hlasm-parser`にpush済みで
-  originと同期していることを確認済み）。ローカルでも全く同じ手順
-  （新規venv→git+https経由でhlasm-parserを入れる→`pip install -e .`→
-  pytest）を実行し、83件グリーンになることを確認してからワークフロー
-  ファイルを確定させた
-- README.mdにCIバッジを追加
+  pytestを自動実行
+- **ハマった点**: 最初`pip install git+https://github.com/kava2108/
+  hlasm-parser.git`で組んで実際にpushしたところ、CIが
+  `fatal: could not read Username for 'https://github.com'`で失敗した。
+  `hlasm-emulator`も`hlasm-parser`も**両方とも非公開(Private)リポジトリ**
+  であり、GitHub Actionsの既定の`GITHUB_TOKEN`は実行中のリポジトリ
+  自身にしかアクセス権が無く、別の非公開リポジトリ(hlasm-parser)は
+  cloneできないため（ローカルでは自分のgh CLI認証があるので
+  `git ls-remote`が通ってしまい、この問題に気づくのが遅れた）
+- ユーザーに「hlasm-parserを公開にする」か「PATをシークレットにする」
+  かを確認し、**PAT方式**を選択。ワークフローを
+  `pip install "git+https://x-access-token:${HLASM_PARSER_PAT}@github.com/kava2108/hlasm-parser.git"`
+  に変更（`HLASM_PARSER_PAT`はリポジトリシークレット）
+- **ユーザー側の残作業（PATの発行はAPIでは不可、Web UI操作が必要）**:
+  1. GitHub右上のアバター → Settings → Developer settings →
+     Personal access tokens → Fine-grained tokens → Generate new token
+  2. Repository access を「Only select repositories」→
+     `kava2108/hlasm-parser`のみを選択
+  3. Permissions → Repository permissions → **Contents: Read-only**
+     だけ付与（他は不要）
+  4. 発行されたトークンを、`hlasm-emulator`リポジトリの
+     Settings → Secrets and variables → Actions → New repository secret
+     で名前`HLASM_PARSER_PAT`として登録
+     （または手元の端末で`gh secret set HLASM_PARSER_PAT --repo
+     kava2108/hlasm-emulator`を実行し、プロンプトにトークンを貼り付け）
+  5. 登録後、Actionsタブから再実行（Re-run jobs）するか、何か1コミット
+     pushすれば次回から緑になるはず
+- README.mdにCIバッジを追加（シークレット未設定の間は赤/失敗のままなので
+  ユーザー側の上記作業待ち）
 - `LICENSE`（MIT、pyproject.tomlに元々あった`license = {text = "MIT"}`
   宣言を実体化したもの）をリポジトリルートと`vscode-extension/`の両方に
   配置（`vsce package`は拡張ディレクトリ内のLICENSEを見るため、片方だけ
